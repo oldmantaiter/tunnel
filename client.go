@@ -159,6 +159,10 @@ type ClientConfig struct {
 	// Debug enables debug mode, enable only if you want to debug the server.
 	Debug bool
 
+	// UseServerAddrForControl enables the use of the server address for control messages. This
+	// is useful if the tunnel host is on a load balancer that does host header based routing.
+	UseServerAddrForControl bool
+
 	// DEPRECATED:
 
 	// LocalAddr is DEPRECATED please use ProxyHTTP.LocalAddr, see ProxyOverwrite for more details.
@@ -436,7 +440,12 @@ func (c *Client) connect(identifier, serverAddr string) error {
 		return err
 	}
 
-	remoteURL := controlURL(conn)
+	var remoteURL string
+	if c.config.UseServerAddrForControl {
+		remoteURL = controlURLFromServerAddr(serverAddr, conn)
+	} else {
+		remoteURL = controlURL(conn)
+	}
 	c.log.Debug("CONNECT to %q", remoteURL)
 	req, err := http.NewRequest("CONNECT", remoteURL, nil)
 	if err != nil {
