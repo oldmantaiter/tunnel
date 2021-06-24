@@ -419,7 +419,13 @@ func (s *Server) controlHandler(w http.ResponseWriter, r *http.Request) (ctErr e
 		return fmt.Errorf("hijack not possible: %s", err)
 	}
 
-	if _, err := io.WriteString(conn, "HTTP/1.1 "+proto.Connected+"\n\n"); err != nil {
+	respData := []string{
+		"HTTP/1.1 101 Switchping Protocols",
+		"Upgrade: websocket",
+		"Connection: Upgrade",
+	}
+
+	if _, err := io.WriteString(conn, strings.Join(respData, "\r\n")); err != nil {
 		return fmt.Errorf("error writing response: %s", err)
 	}
 
@@ -681,8 +687,8 @@ func copyHeader(dst, src http.Header) {
 // checkConnect checks whether the incoming request is HTTP CONNECT method.
 func (s *Server) checkConnect(fn func(w http.ResponseWriter, r *http.Request) error) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "CONNECT" {
-			http.Error(w, "405 must CONNECT\n", http.StatusMethodNotAllowed)
+		if r.Method != "GET" {
+			http.Error(w, "405 must GET\n", http.StatusMethodNotAllowed)
 			return
 		}
 

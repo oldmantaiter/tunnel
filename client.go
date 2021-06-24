@@ -159,6 +159,10 @@ type ClientConfig struct {
 	// Debug enables debug mode, enable only if you want to debug the server.
 	Debug bool
 
+	// UseServerAddrForControl enables the use of the server address for control messages. This
+	// is useful if the tunnel host is on a load balancer that does host header based routing.
+	UseServerAddrForControl bool
+
 	// DEPRECATED:
 
 	// LocalAddr is DEPRECATED please use ProxyHTTP.LocalAddr, see ProxyOverwrite for more details.
@@ -436,14 +440,21 @@ func (c *Client) connect(identifier, serverAddr string) error {
 		return err
 	}
 
-	remoteURL := controlURL(conn)
+	var remoteURL string
+	if c.config.UseServerAddrForControl {
+		remoteURL = controlURLFromServerAddr(conn, serverAddr)
+	} else {
+		remoteURL = controlURL(conn)
+	}
 	c.log.Debug("CONNECT to %q", remoteURL)
-	req, err := http.NewRequest("CONNECT", remoteURL, nil)
+	req, err := http.NewRequest("GET", remoteURL, nil)
 	if err != nil {
 		return fmt.Errorf("error creating request to %s: %s", remoteURL, err)
 	}
 
 	req.Header.Set(proto.ClientIdentifierHeader, identifier)
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Connection", "Upgrade")
 
 	c.log.Debug("Writing request to TCP: %+v", req)
 
@@ -459,7 +470,8 @@ func (c *Client) connect(identifier, serverAddr string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK || resp.Status != proto.Connected {
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		// if resp.StatusCode != http.StatusOK || resp.Status != proto.Connected {
 		out, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("tunnel server error: status=%d, error=%s", resp.StatusCode, err)
