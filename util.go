@@ -109,6 +109,10 @@ func controlURL(conn net.Conn) string {
 	return fmt.Sprint(scheme(conn), "://", conn.RemoteAddr(), proto.ControlPath)
 }
 
+func controlURLFromServerAddr(conn net.Conn, addr string) string {
+        return fmt.Sprint(scheme(conn), "://", addr, proto.ControlPath)
+}
+
 func scheme(conn net.Conn) (scheme string) {
 	switch conn.(type) {
 	case *tls.Conn:
